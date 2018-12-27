@@ -27,11 +27,19 @@
  *                     window manager - MEJT
  * 27 May 18         - Set background colour using named colour - MEJT
  * 28 May 18         - Trap key press and mouse button events - MEJT
+ * 26 Dec 18         - Added a lookup table for event names, and added debug
+ *                     code to print the event names - MEJT
+ *                   - Moved  debug macro defination to a seperate file  and
+ *                     defined version number and build information - MEJT
+ *                   - Now handles events when window is moved - MEJT
  * 
  * TO DO :           - Fix code so window is centered properly.
  *                   - Draw multiple colours on the window background...
  *
  */
+#define VERSION        "0.1"
+#define BUILD          "006"
+#define DATE           "26 0Dec 18"
 
 #define DEBUG True
 
@@ -42,13 +50,12 @@
 #include <stdlib.h> /* getenv(), etc. */
 #include <string.h> /* strlen(), etc. */
 
-#ifndef debug /* Don't redefine macro if already defined. */
-#define debug(code) do {if(DEBUG){code;}} while(0)
-#endif
+#include "x11-debug.h" /* Defines a lookup table for event names. */
+#include "x11-eventnames.h" /* Defines a lookup table for event names. */
 
 #define WIDTH 512
 #define HEIGHT 320
-#define BACKGROUND_COLOR "Dark Grey"
+#define BACKGROUND_COLOR "Light sky blue"
 
 int main(int argc, char *argv[]){
 
@@ -134,8 +141,8 @@ int main(int argc, char *argv[]){
          ExposureMask | /* Window is redrawn. */
          ButtonPressMask | /* Mouse button is pressed. */
          KeyPressMask | /* Key is pressed. */
-         StructureNotifyMask | /* Window resizing, etc. */
-         PropertyChangeMask
+         StructureNotifyMask | /* Window resizing. */
+         PropertyChangeMask /* Window position */
       );
 
       wm_delete_window = XInternAtom (h_display, "WM_DELETE_WINDOW", False);
@@ -147,9 +154,11 @@ int main(int argc, char *argv[]){
       while (True) {
          XNextEvent(h_display, &x_event);
 
+         debug(fprintf(stderr, "\nDebug: %s line : %d : \tEvent \t\t: %s\n", __FILE__, __LINE__, x_event_names[x_event.type]));
+
          /* Draw or redraw the window */
          if (x_event.type == Expose ||
-            x_event.type == PropertyChangeMask) {
+            x_event.type == ConfigureNotify) {
 
             /* Get window geometry */
             if (XGetGeometry(h_display, x_application_window,
