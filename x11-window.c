@@ -23,7 +23,9 @@
  *
  * 28 Apr 13   0.1   - Initial version - MEJT
  * 14 Mar 16         - Use window hints to position the window - MEJT
- *
+ *                   - Added  code  to handle window close events  from  the
+ *                     window manager - MEJT
+ * 
  * TO DO :           - Fix code so window is centered properly.
  *                   - Draw multiple colours on the window background...
  *
@@ -71,6 +73,7 @@ int main(int argc, char *argv[]){
    XEvent x_event;
    XFontStruct *h_font_info; /* Font to display text.  */
    XSizeHints x_window_size; /* Window size hints structure. */
+   Atom wm_delete_window;
 
    /* Open a display. */
    h_display = XOpenDisplay(s_display_name);
@@ -121,8 +124,16 @@ int main(int argc, char *argv[]){
       /* Flush all pending requests to the X server, and wait until they are processed by the X server. */
       XSync(h_display, False);
 
-      /* Select kind of events we are interested in */
-      XSelectInput(h_display, x_application_window, ExposureMask | KeyPressMask);
+      /* Events are selected using a bit mask that corresponds the events we
+       * want to receive. */
+      XSelectInput(h_display, x_application_window, 
+         ExposureMask | /* Window is redrawn. */
+         KeyPressMask | /* Key is pressed. */
+         StructureNotifyMask /* Window resizing, etc. */
+      );
+
+      wm_delete_window = XInternAtom (h_display, "WM_DELETE_WINDOW", False);
+      XSetWMProtocols (h_display, x_application_window, &wm_delete_window, 1);
 
       XFlush(h_display);
 
@@ -147,7 +158,6 @@ int main(int argc, char *argv[]){
             }
 
             /* Get position relative to root window */
-            
             XTranslateCoordinates(h_display, x_application_window,
                RootWindow(h_display, i_screen),
                x_window_size.x, x_window_size.y, 
@@ -155,12 +165,10 @@ int main(int argc, char *argv[]){
                &x_child_window);
 
             /* Adjust position to allow for title bar and border */
-
             i_window_left = i_window_left - (x_window_size.x << 1);
             i_window_top = i_window_top - (x_window_size.y << 1);
             
             /* Print some debugging information to stderr. */
-
             sprintf(s_text, "(%d x %d)", x_window_size.width, x_window_size.height);
             debug(
                fprintf(stderr, "Debug: %s line : %d : \tDisplay \t: '%s'\n", __FILE__, __LINE__, s_display_name);
@@ -172,11 +180,9 @@ int main(int argc, char *argv[]){
             );
             
             /* Get the default font properties */
-            
             h_font_info = XQueryFont(h_display, XGContextFromGC(DefaultGC(h_display, i_screen))); 
            
             /* Find font size and calculate position of text */
-
             i_text_width = XTextWidth(h_font_info, s_text, strlen(s_text));
             i_text_left = (x_window_size.width - i_text_width) / 2;
             i_text_top = x_window_size.height / 2 + h_font_info->ascent / 2;
@@ -186,11 +192,16 @@ int main(int argc, char *argv[]){
                i_text_top = h_font_info->ascent + i_window_border;
 
             /* Draw the message string in the middle of the window */
-
             XDrawString(h_display, x_application_window, 
                DefaultGC(h_display, i_screen),
                i_text_left, i_text_top,
                s_text, strlen(s_text));
+         }
+
+         else if (x_event.type == ClientMessage) { /* Client messages */
+            if ((Atom)x_event.xclient.data.l[0] == wm_delete_window) { /* Check the message type. */
+               break; /* Exit if the window manager closes the application window. */
+            }
          }
 
          /* Wait for a key press event */
