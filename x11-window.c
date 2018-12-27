@@ -25,6 +25,7 @@
  * 14 Mar 16         - Use window hints to position the window - MEJT
  *                   - Added  code  to handle window close events  from  the
  *                     window manager - MEJT
+ * 27 May 18         - Set background colour using named colour - MEJT
  * 
  * TO DO :           - Fix code so window is centered properly.
  *                   - Draw multiple colours on the window background...
@@ -46,6 +47,7 @@
 
 #define WIDTH 512
 #define HEIGHT 320
+#define BACKGROUND_COLOR "Dark Grey"
 
 int main(int argc, char *argv[]){
 
@@ -61,10 +63,6 @@ int main(int argc, char *argv[]){
 
    char *s_display_name = getenv("DISPLAY"); /* Get pointer to the X display name. */
 
-   unsigned int i_red = 118;
-   unsigned int i_green = 132;
-   unsigned int i_blue = 143;
-
    Display *h_display; /* Pointer to X display structure. */
    XColor x_background_color, x_true_color; /* Background color */
    Window x_application_window; /* Application window structure. */
@@ -74,6 +72,7 @@ int main(int argc, char *argv[]){
    XFontStruct *h_font_info; /* Font to display text.  */
    XSizeHints x_window_size; /* Window size hints structure. */
    Atom wm_delete_window;
+   Colormap x_color_map; /* Colour map */
 
    /* Open a display. */
    h_display = XOpenDisplay(s_display_name);
@@ -103,8 +102,12 @@ int main(int argc, char *argv[]){
       /* Set the window's border width to 4 pixels wide. */
       i_window_border = 4;
 
-      /* Set the window's backgound colour. */
-      i_background_colour = i_blue | ((i_green | i_red << 8) << 8);
+      /* Set the window's backgound colour by name using the default color map. */
+      x_color_map = DefaultColormap(h_display, i_screen);
+      if (XAllocNamedColor(h_display, x_color_map, BACKGROUND_COLOR,
+         &x_background_color, &x_true_color) == 0) {
+         fprintf(stderr, "\nWarning: %s line : %d : unknown color '%s'.\n", __FILE__, __LINE__, BACKGROUND_COLOR);
+      }
 
       /* Create the application window, as a child of the root window. */
       x_application_window = XCreateSimpleWindow(h_display, /* Display handle. */
@@ -114,7 +117,7 @@ int main(int argc, char *argv[]){
          x_window_size.height, /* Window height */
          i_window_border, /* Border width - ignored ? */
          BlackPixel(h_display, i_screen), /* Preferred method to set border colour to black */
-         i_background_colour); /* Background colour - RGB value. */
+         x_background_color.pixel); /* Background colour - RGB value. */
 
       XStoreName(h_display, x_application_window, ""); /* Set the window title. */
       
@@ -152,8 +155,7 @@ int main(int argc, char *argv[]){
                &x_window_size.height,
                &i_window_border,
                &i_colour_depth) == False) {
-               fprintf(stderr, "\nError: %s line : %d : %s: can't get window geometry\n", 
-                  __FILE__, __LINE__, argv[0]);
+               fprintf(stderr, "%s: can't get window geometry.\n", argv[0]);
                exit(1);
             }
 
@@ -173,7 +175,7 @@ int main(int argc, char *argv[]){
             debug(
                fprintf(stderr, "Debug: %s line : %d : \tDisplay \t: '%s'\n", __FILE__, __LINE__, s_display_name);
                fprintf(stderr, "Debug: %s line : %d : \tResolution \t: %d x %d\n", __FILE__, __LINE__, i_display_width, i_display_height);
-               fprintf(stderr, "Debug: %s line : %d : \tBackground \t: #%X%X%X\n", __FILE__, __LINE__, i_red, i_green, i_blue);
+               fprintf(stderr, "Debug: %s line : %d : \tBackground \t: #%06X\n", __FILE__, __LINE__, x_true_color);
                fprintf(stderr, "Debug: %s line : %d : \tSize \t\t: %s\n", __FILE__, __LINE__, s_text);
                fprintf(stderr, "Debug: %s line : %d : \tPosition \t: %d x %d\n", __FILE__, __LINE__, i_window_left, i_window_top);
                fprintf(stderr, "Debug: %s line : %d : \tDepth \t\t: %d \n", __FILE__, __LINE__, i_colour_depth);
@@ -214,7 +216,7 @@ int main(int argc, char *argv[]){
 
    else {
 
-   fprintf(stderr, "%s: cannot connect to X server '%s'\n", argv[0], s_display_name);
+   fprintf(stderr, "%s: cannot connect to X server '%s'.\n", argv[0], s_display_name);
       exit(1);
    }
 
