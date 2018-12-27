@@ -26,6 +26,7 @@
  *                   - Added  code  to handle window close events  from  the
  *                     window manager - MEJT
  * 27 May 18         - Set background colour using named colour - MEJT
+ * 28 May 18         - Trap key press and mouse button events - MEJT
  * 
  * TO DO :           - Fix code so window is centered properly.
  *                   - Draw multiple colours on the window background...
@@ -131,8 +132,10 @@ int main(int argc, char *argv[]){
        * want to receive. */
       XSelectInput(h_display, x_application_window, 
          ExposureMask | /* Window is redrawn. */
+         ButtonPressMask | /* Mouse button is pressed. */
          KeyPressMask | /* Key is pressed. */
-         StructureNotifyMask /* Window resizing, etc. */
+         StructureNotifyMask | /* Window resizing, etc. */
+         PropertyChangeMask
       );
 
       wm_delete_window = XInternAtom (h_display, "WM_DELETE_WINDOW", False);
@@ -145,7 +148,8 @@ int main(int argc, char *argv[]){
          XNextEvent(h_display, &x_event);
 
          /* Draw or redraw the window */
-         if (x_event.type == Expose) {
+         if (x_event.type == Expose ||
+            x_event.type == PropertyChangeMask) {
 
             /* Get window geometry */
             if (XGetGeometry(h_display, x_application_window,
@@ -205,9 +209,21 @@ int main(int argc, char *argv[]){
                break; /* Exit if the window manager closes the application window. */
             }
          }
-
-         /* Wait for a key press event */
-         if (x_event.type == KeyPress) break;
+         else if (x_event.type == ButtonPress ) { /* Wait for a key press event */
+            debug(
+               fprintf(stderr, "Debug: %s line : %d : \tState \t\t: %d\n", __FILE__, __LINE__, x_event.xbutton.state);
+               fprintf(stderr, "Debug: %s line : %d : \tButton \t\t: %d\n", __FILE__, __LINE__, x_event.xbutton.button)
+            );
+         }
+         else if (x_event.type == KeyPress) { /* Wait for a key press event */
+            debug(
+               fprintf(stderr, "Debug: %s line : %d : \tState \t\t: %d\n", __FILE__, __LINE__, x_event.xkey.state);
+               fprintf(stderr, "Debug: %s line : %d : \tKeycode \t: %d\n", __FILE__, __LINE__, x_event.xkey.keycode)
+            );
+            if (x_event.xkey.keycode == XKeysymToKeycode(h_display, XStringToKeysym("Escape"))) {
+               break;
+            }
+         }
       }
 
       /* close connection to server */
