@@ -22,12 +22,17 @@
  *             'sys$share:decw$xlibshr/share'
  *
  * 28 Apr 13   0.1   - Initial version - MEJT
+ * 14 Mar 16         - Use window hints to position the window - MEJT
+ *
+ * TO DO :           - Fix code so window is centered properly.
+ *                   - Draw multiple colours on the window background...
  *
  */
 
 #define DEBUG True
 
 #include <X11/Xlib.h> /* XOpenDisplay(), etc. */
+#include <X11/Xutil.h> /* XSizeHints */
 
 #include <stdio.h> /* fprintf(), etc. */
 #include <stdlib.h> /* getenv(), etc. */
@@ -37,36 +42,40 @@
 #define debug(code) do {if(DEBUG){code;}} while(0)
 #endif
 
-main(int argc, char *argv[]){
+#define WIDTH 512
+#define HEIGHT 320
+
+int main(int argc, char *argv[]){
 
    unsigned int i_screen; /* Default screen number */
    unsigned int i_display_height, i_display_width; /* Screen height and width in pixels. */
-   unsigned int i_window_width, i_window_height;   /* New window height and width in pixels. */
-   unsigned int i_window_left, i_window_top;    /* Location of the window's top-left corner. */
-   unsigned int i_position_left, i_position_top;   /* Location of the window's top-left corner. */
+   unsigned int i_window_left, i_window_top; /* Location of the window's top-left corner. */
    unsigned int i_window_border; /* Window's border width. */
    unsigned int i_background_colour; /* Window's background colour. */
    unsigned int i_colour_depth; /* Window's colour depth. */
-   unsigned int i_text_width;
+   unsigned int i_text_top, i_text_left, i_text_width;
+
+   char s_text[21]; /* Message buffer used to display text in middle of window */
+
+   char *s_display_name = getenv("DISPLAY"); /* Get pointer to the X display name. */
 
    unsigned int i_red = 118;
    unsigned int i_green = 132;
    unsigned int i_blue = 143;
 
-   char s_text[21]; /* Text message to display in midle of window */
-   char *s_display_name = ""; /* Get pointer to the X display name. */
-
    Display *h_display; /* Pointer to X display structure. */
+   XColor x_background_color, x_true_color; /* Background color */
    Window x_application_window; /* Application window structure. */
    Window x_root_window; /* Root window structure. */
-   Window x_child_window; /* Child window returned from XTranslateCoodinates */
+   Window x_child_window; /* Child window returned from XTranslateCoodinates. */
    XEvent x_event;
-   XFontStruct *h_font_info;
+   XFontStruct *h_font_info; /* Font to display text.  */
+   XSizeHints x_window_size; /* Window size hints structure. */
 
-   /*   Open a display. */
+   /* Open a display. */
    h_display = XOpenDisplay(s_display_name);
 
-   /*   If successful create and display a new window. */
+   /* If successful create and display a new window. */
    if (h_display){
 
       /* Get the ID of the root window of the screen. */
@@ -79,9 +88,14 @@ main(int argc, char *argv[]){
       i_display_height = XDisplayHeight(h_display, i_screen);
       i_display_width = XDisplayWidth(h_display, i_screen);
 
+      /* Tell the window manager we want to specify the position and size of the window. */
+      x_window_size.flags  = PPosition | PSize | USPosition | USSize;
+
       /* Set window size as 800x600 pixels. */
-      i_window_width = 800;
-      i_window_height = 600;
+      x_window_size.width = WIDTH; /* Set the desired size of the window. */
+      x_window_size.height = HEIGHT;
+      x_window_size.x = (i_display_width - WIDTH) / 2; /* Centre the window in the middle of the display. */
+      x_window_size.y = (i_display_height - HEIGHT) / 2;
 
       /* Set the window's border width to 4 pixels wide. */
       i_window_border = 4;
@@ -90,10 +104,11 @@ main(int argc, char *argv[]){
       i_background_colour = i_blue | ((i_green | i_red << 8) << 8);
 
       /* Create the application window, as a child of the root window. */
-      x_application_window = XCreateSimpleWindow(h_display, RootWindow(h_display, i_screen),
-         i_window_width, i_window_height,  /* Window position - ignored ? */
-         i_window_width, /* Window width */
-         i_window_height, /* Window height */
+      x_application_window = XCreateSimpleWindow(h_display, /* Display handle. */
+         RootWindow(h_display, i_screen),
+         x_window_size.x, x_window_size.y,  /* Window position - ignored ? */
+         x_window_size.width, /* Window width */
+         x_window_size.height, /* Window height */
          i_window_border, /* Border width - ignored ? */
          BlackPixel(h_display, i_screen), /* Preferred method to set border colour to black */
          i_background_colour); /* Background colour - RGB value. */
@@ -121,52 +136,60 @@ main(int argc, char *argv[]){
             /* Get window geometry */
             if (XGetGeometry(h_display, x_application_window,
                &RootWindow(h_display, i_screen),
-               &i_window_left, &i_window_top,
-               &i_window_width,
-               &i_window_height,
+               &x_window_size.x, &x_window_size.y,
+               &x_window_size.width,
+               &x_window_size.height,
                &i_window_border,
                &i_colour_depth) == False) {
-               fprintf(stderr, "\nError: %s line : %d : %s: can't get window geometry\n", __FILE__, __LINE__, argv[0]);
+               fprintf(stderr, "\nError: %s line : %d : %s: can't get window geometry\n", 
+                  __FILE__, __LINE__, argv[0]);
                exit(1);
             }
 
-            sprintf(s_text, "(%d x %d)",i_window_width, i_window_height);
-
+            /* Get position relative to root window */
+            
             XTranslateCoordinates(h_display, x_application_window,
                RootWindow(h_display, i_screen),
-               i_window_left, i_window_top,
-               &i_position_left, &i_position_top, /* Returns position relative to root window */
+               x_window_size.x, x_window_size.y, 
+               &i_window_left, &i_window_top,
                &x_child_window);
 
-            /* Adjust position to allow for root window title bar and border */
+            /* Adjust position to allow for title bar and border */
 
-            i_position_left = i_position_left - (i_window_left << 1);
-            i_position_top = i_position_top - (i_window_top << 1);
-
+            i_window_left = i_window_left - (x_window_size.x << 1);
+            i_window_top = i_window_top - (x_window_size.y << 1);
+            
             /* Print some debugging information to stderr. */
+
+            sprintf(s_text, "(%d x %d)", x_window_size.width, x_window_size.height);
             debug(
                fprintf(stderr, "Debug: %s line : %d : \tDisplay \t: '%s'\n", __FILE__, __LINE__, s_display_name);
                fprintf(stderr, "Debug: %s line : %d : \tResolution \t: %d x %d\n", __FILE__, __LINE__, i_display_width, i_display_height);
                fprintf(stderr, "Debug: %s line : %d : \tBackground \t: #%X%X%X\n", __FILE__, __LINE__, i_red, i_green, i_blue);
                fprintf(stderr, "Debug: %s line : %d : \tSize \t\t: %s\n", __FILE__, __LINE__, s_text);
-               fprintf(stderr, "Debug: %s line : %d : \tPosition \t: %d x %d\n", __FILE__, __LINE__, i_position_left, i_position_top);
+               fprintf(stderr, "Debug: %s line : %d : \tPosition \t: %d x %d\n", __FILE__, __LINE__, i_window_left, i_window_top);
                fprintf(stderr, "Debug: %s line : %d : \tDepth \t\t: %d \n", __FILE__, __LINE__, i_colour_depth);
             );
             
-            h_font_info = XQueryFont(h_display, XGContextFromGC(DefaultGC(h_display, i_screen))); /* Get the default font properties */
+            /* Get the default font properties */
+            
+            h_font_info = XQueryFont(h_display, XGContextFromGC(DefaultGC(h_display, i_screen))); 
            
+            /* Find font size and calculate position of text */
+
             i_text_width = XTextWidth(h_font_info, s_text, strlen(s_text));
-            i_position_left = (i_window_width - i_text_width) / 2;
-            i_position_top = i_window_height / 2 + h_font_info->ascent / 2;
-            if (i_position_left < i_window_border || i_position_left > i_window_width)
-               i_position_left = i_window_border;
-            if (i_position_top < h_font_info->ascent + i_window_border)
-               i_position_top = h_font_info->ascent + i_window_border;
+            i_text_left = (x_window_size.width - i_text_width) / 2;
+            i_text_top = x_window_size.height / 2 + h_font_info->ascent / 2;
+            if (i_text_left < i_window_border || i_text_left > x_window_size.width)
+               i_text_left = i_window_border;
+            if (i_text_top < h_font_info->ascent + i_window_border)
+               i_text_top = h_font_info->ascent + i_window_border;
 
             /* Draw the message string in the middle of the window */
-            XDrawString(h_display, x_application_window,
+
+            XDrawString(h_display, x_application_window, 
                DefaultGC(h_display, i_screen),
-               i_position_left, i_position_top,
+               i_text_left, i_text_top,
                s_text, strlen(s_text));
          }
 
