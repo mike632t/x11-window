@@ -32,6 +32,8 @@
  *                   - Moved  debug macro defination to a seperate file  and
  *                     defined version number and build information - MEJT
  *                   - Now handles events when window is moved - MEJT
+ * 28 Dec 18         - Changed default display name to avoid issues when run
+ *                     on VAX/VMS - MEJT
  * 
  * TO DO :           - Fix code so window is centered properly.
  *                   - Draw multiple colours on the window background...
@@ -55,7 +57,7 @@
 
 #define WIDTH 512
 #define HEIGHT 320
-#define BACKGROUND_COLOR "Light sky blue"
+#define BACKGROUND_COLOR "Ivory" /* "Light Sky Blue" "Azure" */
 
 int main(int argc, char *argv[]){
 
@@ -69,7 +71,7 @@ int main(int argc, char *argv[]){
 
    char s_text[21]; /* Message buffer used to display text in middle of window */
 
-   char *s_display_name = getenv("DISPLAY"); /* Get pointer to the X display name. */
+   char *s_display_name = ""; /* Default X display name. */
 
    Display *h_display; /* Pointer to X display structure. */
    XColor x_background_color, x_true_color; /* Background color */
@@ -191,7 +193,7 @@ int main(int argc, char *argv[]){
                fprintf(stderr, "Debug: %s line : %d : \tBackground \t: #%06X\n", __FILE__, __LINE__, x_true_color);
                fprintf(stderr, "Debug: %s line : %d : \tSize \t\t: %s\n", __FILE__, __LINE__, s_text);
                fprintf(stderr, "Debug: %s line : %d : \tPosition \t: %d x %d\n", __FILE__, __LINE__, i_window_left, i_window_top);
-               fprintf(stderr, "Debug: %s line : %d : \tDepth \t\t: %d \n", __FILE__, __LINE__, i_colour_depth);
+               fprintf(stderr, "Debug: %s line : %d : \tDepth \t\t: %d \n", __FILE__, __LINE__, i_colour_depth); 
             );
             
             /* Get the default font properties */
