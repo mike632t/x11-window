@@ -1,8 +1,9 @@
 /*
- *
- * x11-calc-print.h - Debug macro.
+ * x11-debug.h
  *
  * Copyright(C) 2018   MEJT
+ * 
+ * Define debug macros.
  *
  * This  program is free software: you can redistribute it and/or modify  it
  * under  the  terms of the GNU General Public License as published  by  the
@@ -23,8 +24,29 @@
  * 26 Dec 18         - Removed non ANSI compliant macro definations - MEJT
  *
  */
-
+ 
+#include <stdio.h>
+#include <stdlib.h>  /* exit */
+#include <stdarg.h>
+ 
 /* Execute code if DEBUG is True */
 #ifndef debug /* Don't redefine macro if already defined. */
 #define debug(code) do {if(DEBUG){code;}} while(0)
+ 
+void print(const char *_fmt, ...) { /* Print formatted error message */
+   va_list _args;
+   va_start(_args, _fmt);
+   fprintf(stderr, "Debug: ");
+   vfprintf(stderr, _fmt, _args);
+   va_end(_args);
+}
+
 #endif
+
+void error(const char *_fmt, ...) { /* Print formatted error message */
+   va_list _args;
+   va_start(_args, _fmt);
+   fprintf(stderr, "%s : ", NAME);
+   vfprintf(stderr, _fmt, _args);
+   va_end(_args);
+}
